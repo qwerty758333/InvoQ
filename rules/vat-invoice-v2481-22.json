@@ -1,0 +1,173 @@
+{
+  "version": "1.0.0",
+  "gazette": "No. 2481/22",
+  "effectiveDate": "2026-07-01",
+  "jurisdiction": "Sri Lanka",
+  "title": "VAT E-Invoice Mandatory Fields and Format",
+  "fields": [
+    {
+      "field": "invoiceTitle",
+      "label": "Document Title",
+      "required": true,
+      "description": "The document must be clearly identified as a 'Tax Invoice', 'VAT Invoice', or 'Invoice'",
+      "formatHint": "Must contain the word 'Invoice'"
+    },
+    {
+      "field": "invoiceNumber",
+      "label": "Invoice Number",
+      "required": true,
+      "description": "A unique, sequential invoice identification number",
+      "formatHint": "Alphanumeric, no gaps in sequence",
+      "validate": "^[A-Za-z0-9\\-/]+$"
+    },
+    {
+      "field": "invoiceDate",
+      "label": "Invoice Date",
+      "required": true,
+      "description": "The date the invoice was issued",
+      "formatHint": "DD/MM/YYYY or YYYY-MM-DD"
+    },
+    {
+      "field": "supplierName",
+      "label": "Supplier / Seller Name",
+      "required": true,
+      "description": "Full legal name of the supplier or service provider"
+    },
+    {
+      "field": "supplierAddress",
+      "label": "Supplier Address",
+      "required": true,
+      "description": "Business address of the supplier"
+    },
+    {
+      "field": "supplierVatNumber",
+      "label": "Supplier VAT Registration Number",
+      "required": true,
+      "description": "VAT registration number issued by the Inland Revenue Department",
+      "formatHint": "Typically starts with country prefix or IRD number",
+      "validate": "^[A-Za-z0-9]+$"
+    },
+    {
+      "field": "supplierTin",
+      "label": "Supplier TIN",
+      "required": false,
+      "description": "Taxpayer Identification Number (if different from VAT number)"
+    },
+    {
+      "field": "customerName",
+      "label": "Customer / Buyer Name",
+      "required": true,
+      "description": "Full name of the customer or purchasing business"
+    },
+    {
+      "field": "customerAddress",
+      "label": "Customer Address",
+      "required": true,
+      "description": "Business or residential address of the customer"
+    },
+    {
+      "field": "customerVatNumber",
+      "label": "Customer VAT Registration Number",
+      "required": false,
+      "description": "VAT registration number of the customer (required for B2B transactions)"
+    },
+    {
+      "field": "itemDescriptions",
+      "label": "Description of Goods / Services",
+      "required": true,
+      "description": "Clear description of each item or service supplied"
+    },
+    {
+      "field": "quantities",
+      "label": "Quantity",
+      "required": true,
+      "description": "Quantity of each item or extent of service"
+    },
+    {
+      "field": "unitPrices",
+      "label": "Unit Price",
+      "required": true,
+      "description": "Price per unit (exclusive of VAT)",
+      "formatHint": "Numeric, with currency"
+    },
+    {
+      "field": "lineTotals",
+      "label": "Line Total",
+      "required": true,
+      "description": "Total amount for each line item (quantity × unit price)"
+    },
+    {
+      "field": "subtotal",
+      "label": "Subtotal (excl. VAT)",
+      "required": true,
+      "description": "Sum of all line totals before VAT",
+      "formatHint": "Numeric"
+    },
+    {
+      "field": "vatRate",
+      "label": "VAT Rate(s)",
+      "required": true,
+      "description": "Applicable VAT rate(s) — standard rate is 18% as of 2024",
+      "formatHint": "Percentage, e.g. 18%"
+    },
+    {
+      "field": "vatAmount",
+      "label": "VAT Amount",
+      "required": true,
+      "description": "Total VAT charged on the invoice",
+      "formatHint": "Numeric"
+    },
+    {
+      "field": "totalAmount",
+      "label": "Total Amount (incl. VAT)",
+      "required": true,
+      "description": "Grand total payable — subtotal plus VAT",
+      "formatHint": "Numeric"
+    },
+    {
+      "field": "currency",
+      "label": "Currency",
+      "required": true,
+      "description": "Currency in which the invoice is denominated",
+      "formatHint": "ISO code (LKR, USD, EUR, etc.) or symbol"
+    },
+    {
+      "field": "discounts",
+      "label": "Discounts / Allowances",
+      "required": false,
+      "description": "Any discounts, allowances, or price reductions applied"
+    },
+    {
+      "field": "paymentTerms",
+      "label": "Payment Terms",
+      "required": false,
+      "description": "Payment due date or terms (e.g. Net 30)"
+    },
+    {
+      "field": "supplyDate",
+      "label": "Date of Supply",
+      "required": false,
+      "description": "Date when goods/services were supplied (if different from invoice date)"
+    },
+    {
+      "field": "exportIndicator",
+      "label": "Export Indicator",
+      "required": false,
+      "description": "If the supply is an export, must be marked as zero-rated with destination country"
+    }
+  ],
+  "vatRates": {
+    "standard": 18,
+    "reduced": [],
+    "zeroRated": ["exports", "essential_goods"],
+    "exempt": ["financial_services", "healthcare", "education"]
+  },
+  "notes": [
+    "All amounts must be clearly denominated with currency indicated.",
+    "Invoice numbers must be sequential with no gaps.",
+    "Credit/debit notes must reference the original invoice number.",
+    "Simplified invoices are permitted for supplies below LKR 5,000.",
+    "E-invoices must be in a machine-readable format (PDF/A or structured data).",
+    "Records must be retained for a minimum of 5 years."
+  ]
+}
