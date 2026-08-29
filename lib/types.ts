@@ -1,12 +1,14 @@
 export type Severity = "critical" | "warning" | "info";
 
 export type FieldRule = {
-  field: string;
+  id: string;
   label: string;
-  required: boolean;
-  description: string;
-  formatHint?: string;
-  validate?: string; // regex pattern
+  mandatory: boolean;
+  format: string;
+  sourceReference: string;
+  example?: string;
+  implementationNote?: string;
+  commonError?: string;
 };
 
 export type ComplianceIssue = {

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UploadForm } from "@/components/upload-form";
 import { formatDate } from "@/lib/utils";
-import { Plus, FileCheck, AlertTriangle, Clock } from "lucide-react";
+import { Plus, FileCheck, AlertTriangle, Clock, XCircle } from "lucide-react";
 
 type Invoice = {
   id: string;
@@ -33,13 +33,30 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetch("/api/invoices")
-        .then((r) => r.json())
-        .then((data) => {
-          setInvoices(data.invoices || []);
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
+      const fetchInvoices = () => {
+        fetch("/api/invoices")
+          .then((r) => r.json())
+          .then((data) => {
+            const list = Array.isArray(data?.invoices) ? data.invoices : [];
+            setInvoices(list);
+            setLoading(false);
+          })
+          .catch(() => {
+            setInvoices([]);
+            setLoading(false);
+          });
+      };
+
+      fetchInvoices();
+
+      // Refresh list when user returns to this page (e.g., from detail page)
+      const handleVisibility = () => {
+        if (document.visibilityState === "visible") {
+          fetchInvoices();
+        }
+      };
+      document.addEventListener("visibilitychange", handleVisibility);
+      return () => document.removeEventListener("visibilitychange", handleVisibility);
     }
   }, [status]);
 
@@ -107,6 +124,8 @@ export default function DashboardPage() {
                       <FileCheck className="h-5 w-5 text-success" />
                     ) : inv.status === "non_compliant" ? (
                       <AlertTriangle className="h-5 w-5 text-warning" />
+                    ) : inv.status === "failed" ? (
+                      <XCircle className="h-5 w-5 text-destructive" />
                     ) : (
                       <Clock className="h-5 w-5 text-muted-foreground" />
                     )}
@@ -125,6 +144,8 @@ export default function DashboardPage() {
                         ? "success"
                         : inv.status === "non_compliant"
                         ? "warning"
+                        : inv.status === "failed"
+                        ? "destructive"
                         : "secondary"
                     }
                   >
@@ -132,6 +153,8 @@ export default function DashboardPage() {
                       ? "Compliant"
                       : inv.status === "non_compliant"
                       ? "Needs Fixes"
+                      : inv.status === "failed"
+                      ? "Failed"
                       : "Pending"}
                   </Badge>
                 </Link>

@@ -1,173 +1,145 @@
 {
-  "version": "1.0.0",
-  "gazette": "No. 2481/22",
+  "rulesetVersion": "2481/22",
+  "sourceDocument": "Gazette Extraordinary No. 2481/22, Democratic Socialist Republic of Sri Lanka (27 March 2026)",
   "effectiveDate": "2026-07-01",
-  "jurisdiction": "Sri Lanka",
-  "title": "VAT E-Invoice Mandatory Fields and Format",
+  "lastVerified": "2026-08-27",
+  "note": "The Commissioner General may amend this format from time to time. Re-verify this file against the primary gazette text before relying on it for a real filing, and check for newer gazette notifications periodically.",
   "fields": [
     {
-      "field": "invoiceTitle",
-      "label": "Document Title",
-      "required": true,
-      "description": "The document must be clearly identified as a 'Tax Invoice', 'VAT Invoice', or 'Invoice'",
-      "formatHint": "Must contain the word 'Invoice'"
+      "id": "title",
+      "label": "Invoice Title",
+      "mandatory": true,
+      "format": "Must prominently display the text 'TAX INVOICE' in bold or highlighted text.",
+      "sourceReference": "Gazette 2481/22"
     },
     {
-      "field": "invoiceNumber",
-      "label": "Invoice Number",
-      "required": true,
-      "description": "A unique, sequential invoice identification number",
-      "formatHint": "Alphanumeric, no gaps in sequence",
-      "validate": "^[A-Za-z0-9\\-/]+$"
-    },
-    {
-      "field": "invoiceDate",
-      "label": "Invoice Date",
-      "required": true,
-      "description": "The date the invoice was issued",
-      "formatHint": "DD/MM/YYYY or YYYY-MM-DD"
-    },
-    {
-      "field": "supplierName",
-      "label": "Supplier / Seller Name",
-      "required": true,
-      "description": "Full legal name of the supplier or service provider"
-    },
-    {
-      "field": "supplierAddress",
-      "label": "Supplier Address",
-      "required": true,
-      "description": "Business address of the supplier"
-    },
-    {
-      "field": "supplierVatNumber",
-      "label": "Supplier VAT Registration Number",
-      "required": true,
-      "description": "VAT registration number issued by the Inland Revenue Department",
-      "formatHint": "Typically starts with country prefix or IRD number",
-      "validate": "^[A-Za-z0-9]+$"
-    },
-    {
-      "field": "supplierTin",
+      "id": "supplier_tin",
       "label": "Supplier TIN",
-      "required": false,
-      "description": "Taxpayer Identification Number (if different from VAT number)"
+      "mandatory": true,
+      "format": "9-digit Taxpayer Identification Number.",
+      "sourceReference": "Gazette 2481/22"
     },
     {
-      "field": "customerName",
-      "label": "Customer / Buyer Name",
-      "required": true,
-      "description": "Full name of the customer or purchasing business"
+      "id": "supplier_name",
+      "label": "Supplier Name",
+      "mandatory": true,
+      "format": "Full registered business name.",
+      "sourceReference": "Gazette 2481/22"
     },
     {
-      "field": "customerAddress",
-      "label": "Customer Address",
-      "required": true,
-      "description": "Business or residential address of the customer"
+      "id": "supplier_address",
+      "label": "Supplier Address",
+      "mandatory": true,
+      "format": "Full business address.",
+      "sourceReference": "Gazette 2481/22"
     },
     {
-      "field": "customerVatNumber",
-      "label": "Customer VAT Registration Number",
-      "required": false,
-      "description": "VAT registration number of the customer (required for B2B transactions)"
+      "id": "supplier_telephone",
+      "label": "Supplier Telephone Number",
+      "mandatory": false,
+      "format": "Include only if available.",
+      "sourceReference": "Gazette 2481/22 (asterisked/optional field)"
     },
     {
-      "field": "itemDescriptions",
-      "label": "Description of Goods / Services",
-      "required": true,
-      "description": "Clear description of each item or service supplied"
+      "id": "purchaser_tin",
+      "label": "Purchaser TIN",
+      "mandatory": true,
+      "format": "9-digit TIN, required where the purchaser is VAT-registered (needed for their input VAT claim).",
+      "sourceReference": "Gazette 2481/22"
     },
     {
-      "field": "quantities",
-      "label": "Quantity",
-      "required": true,
-      "description": "Quantity of each item or extent of service"
+      "id": "purchaser_name",
+      "label": "Purchaser Name",
+      "mandatory": true,
+      "format": "Full name of the purchasing business or individual.",
+      "sourceReference": "Gazette 2481/22"
     },
     {
-      "field": "unitPrices",
-      "label": "Unit Price",
-      "required": true,
-      "description": "Price per unit (exclusive of VAT)",
-      "formatHint": "Numeric, with currency"
+      "id": "purchaser_address",
+      "label": "Purchaser Address",
+      "mandatory": true,
+      "format": "Full address of the purchaser.",
+      "sourceReference": "Gazette 2481/22"
     },
     {
-      "field": "lineTotals",
-      "label": "Line Total",
-      "required": true,
-      "description": "Total amount for each line item (quantity × unit price)"
+      "id": "purchaser_telephone",
+      "label": "Purchaser Telephone Number",
+      "mandatory": false,
+      "format": "Include only if available.",
+      "sourceReference": "Gazette 2481/22 (asterisked/optional field)"
     },
     {
-      "field": "subtotal",
-      "label": "Subtotal (excl. VAT)",
-      "required": true,
-      "description": "Sum of all line totals before VAT",
-      "formatHint": "Numeric"
+      "id": "invoice_serial_number",
+      "label": "Invoice Serial Number",
+      "mandatory": true,
+      "format": "Exact structure YYMMM_QQQQ_XXXXX — YY: last 2 digits of the year. MMM: first 3 uppercase letters of the month (e.g. JUL). QQQQ: 1-15 character alphanumeric code identifying branch/section/unit/project/customer/classification. XXXXX: purely numeric sequential serial number. Maximum 40 characters total, no spaces.",
+      "example": "26JUL_BR03_00001",
+      "sourceReference": "Gazette 2481/22",
+      "implementationNote": "The gazette's own worked example ('26JULBR03-1') does not strictly follow this stated structure (no underscores, no zero-padding). Validate against the stated rule, not the example, and flag this discrepancy to the user if their format matches neither cleanly."
     },
     {
-      "field": "vatRate",
-      "label": "VAT Rate(s)",
-      "required": true,
-      "description": "Applicable VAT rate(s) — standard rate is 18% as of 2024",
-      "formatHint": "Percentage, e.g. 18%"
+      "id": "invoice_date",
+      "label": "Date of Invoice",
+      "mandatory": true,
+      "format": "MM/DD/YYYY",
+      "sourceReference": "Gazette 2481/22"
     },
     {
-      "field": "vatAmount",
-      "label": "VAT Amount",
-      "required": true,
-      "description": "Total VAT charged on the invoice",
-      "formatHint": "Numeric"
-    },
-    {
-      "field": "totalAmount",
-      "label": "Total Amount (incl. VAT)",
-      "required": true,
-      "description": "Grand total payable — subtotal plus VAT",
-      "formatHint": "Numeric"
-    },
-    {
-      "field": "currency",
-      "label": "Currency",
-      "required": true,
-      "description": "Currency in which the invoice is denominated",
-      "formatHint": "ISO code (LKR, USD, EUR, etc.) or symbol"
-    },
-    {
-      "field": "discounts",
-      "label": "Discounts / Allowances",
-      "required": false,
-      "description": "Any discounts, allowances, or price reductions applied"
-    },
-    {
-      "field": "paymentTerms",
-      "label": "Payment Terms",
-      "required": false,
-      "description": "Payment due date or terms (e.g. Net 30)"
-    },
-    {
-      "field": "supplyDate",
+      "id": "supply_date",
       "label": "Date of Supply",
-      "required": false,
-      "description": "Date when goods/services were supplied (if different from invoice date)"
+      "mandatory": true,
+      "format": "MM/DD/YYYY",
+      "sourceReference": "Gazette 2481/22"
     },
     {
-      "field": "exportIndicator",
-      "label": "Export Indicator",
-      "required": false,
-      "description": "If the supply is an export, must be marked as zero-rated with destination country"
+      "id": "place_of_supply",
+      "label": "Place of Supply",
+      "mandatory": false,
+      "format": "Include only if available.",
+      "sourceReference": "Gazette 2481/22 (asterisked/optional field)"
+    },
+    {
+      "id": "line_items",
+      "label": "Goods/Services Description",
+      "mandatory": true,
+      "format": "Description, quantity/volume, and unit value for each line item. Only goods/services subject to VAT may appear on this invoice — do not mix VAT-taxable and VAT-exempt items on the same tax invoice.",
+      "sourceReference": "Gazette 2481/22"
+    },
+    {
+      "id": "net_value",
+      "label": "Net Value (excl. VAT)",
+      "mandatory": true,
+      "format": "Stated in LKR, inclusive of cents, expressed to two decimal places.",
+      "sourceReference": "Gazette 2481/22",
+      "commonError": "Do not round to the nearest whole rupee — several circulating secondary summaries incorrectly claim cents should be omitted. The gazette requires two decimal places."
+    },
+    {
+      "id": "vat_amount",
+      "label": "VAT Amount Charged",
+      "mandatory": true,
+      "format": "Stated in LKR, inclusive of cents, expressed to two decimal places.",
+      "sourceReference": "Gazette 2481/22"
+    },
+    {
+      "id": "total_consideration",
+      "label": "Total Consideration (incl. VAT)",
+      "mandatory": true,
+      "format": "Stated in LKR, inclusive of cents, expressed to two decimal places.",
+      "sourceReference": "Gazette 2481/22"
+    },
+    {
+      "id": "total_in_words",
+      "label": "Total Consideration in Words",
+      "mandatory": false,
+      "format": "Include only if available.",
+      "sourceReference": "Gazette 2481/22 (asterisked/optional field)"
+    },
+    {
+      "id": "mode_of_payment",
+      "label": "Mode of Payment",
+      "mandatory": false,
+      "format": "Include only if available.",
+      "sourceReference": "Gazette 2481/22 (asterisked/optional field)"
     }
-  ],
-  "vatRates": {
-    "standard": 18,
-    "reduced": [],
-    "zeroRated": ["exports", "essential_goods"],
-    "exempt": ["financial_services", "healthcare", "education"]
-  },
-  "notes": [
-    "All amounts must be clearly denominated with currency indicated.",
-    "Invoice numbers must be sequential with no gaps.",
-    "Credit/debit notes must reference the original invoice number.",
-    "Simplified invoices are permitted for supplies below LKR 5,000.",
-    "E-invoices must be in a machine-readable format (PDF/A or structured data).",
-    "Records must be retained for a minimum of 5 years."
   ]
 }

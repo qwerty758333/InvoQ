@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { put } from "@vercel/blob";
+import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
+import { randomUUID } from "crypto";
+
+const UPLOAD_DIR = join(process.cwd(), "public", "uploads", "invoices");
 
 export async function POST(req: Request) {
   try {
@@ -35,15 +39,28 @@ export async function POST(req: Request) {
       );
     }
 
-    // Upload to Vercel Blob
-    const filename = `invoices/${session.user.id}/${Date.now()}-${file.name}`;
-    const blob = await put(filename, file, { access: "public" });
+    // Generate unique filename to prevent collisions
+    const ext = file.name.split(".").pop() || "jpg";
+    const uniqueFilename = `${randomUUID()}.${ext}`;
+    const userDir = join(UPLOAD_DIR, session.user.id);
+
+    // Ensure directory exists
+    await mkdir(userDir, { recursive: true });
+
+    // Write file to disk
+    const filePath = join(userDir, uniqueFilename);
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    await writeFile(filePath, buffer);
+
+    // Store relative path for URL access
+    const fileUrl = `/uploads/invoices/${session.user.id}/${uniqueFilename}`;
 
     // Create invoice record
     const invoice = await prisma.invoice.create({
       data: {
         userId: session.user.id,
-        originalFileUrl: blob.url,
+        originalFileUrl: fileUrl,
         extractedData: {},
         complianceIssues: [],
         correctedData: {},
@@ -51,11 +68,12 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({ invoiceId: invoice.id, url: blob.url });
+    return NextResponse.json({ invoiceId: invoice.id, url: fileUrl });
   } catch (error) {
-    console.error("Upload error:", error);
+    console.error("[Upload API Error]", error);
+    const message = error instanceof Error ? error.message : "Upload failed";
     return NextResponse.json(
-      { error: "Upload failed" },
+      { error: `Upload failed: ${message}` },
       { status: 500 }
     );
   }

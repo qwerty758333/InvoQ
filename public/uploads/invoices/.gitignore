@@ -1,0 +1,4 @@
+# Ignore uploaded invoice files (MVP local storage)
+# These are user-uploaded files and should not be committed
+*
+!.gitignore

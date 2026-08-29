@@ -3,32 +3,30 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
-import type { ComplianceIssue } from "@/lib/types";
+
+/** Accepts both structured ComplianceIssue and AI-returned {field, reason, original, corrected} shapes. */
+type IssueLike = { field?: string; [key: string]: unknown };
 
 const fieldLabels: Record<string, string> = {
-  invoiceTitle: "Document Title",
-  invoiceNumber: "Invoice Number",
-  invoiceDate: "Invoice Date",
-  supplierName: "Supplier Name",
-  supplierAddress: "Supplier Address",
-  supplierVatNumber: "Supplier VAT Number",
-  supplierTin: "Supplier TIN",
-  customerName: "Customer Name",
-  customerAddress: "Customer Address",
-  customerVatNumber: "Customer VAT Number",
-  itemDescriptions: "Item Descriptions",
-  quantities: "Quantities",
-  unitPrices: "Unit Prices",
-  lineTotals: "Line Totals",
-  subtotal: "Subtotal",
-  vatRate: "VAT Rate",
-  vatAmount: "VAT Amount",
-  totalAmount: "Total Amount",
-  currency: "Currency",
-  discounts: "Discounts",
-  paymentTerms: "Payment Terms",
-  supplyDate: "Supply Date",
-  exportIndicator: "Export Indicator",
+  title: "Invoice Title",
+  supplier_tin: "Supplier TIN",
+  supplier_name: "Supplier Name",
+  supplier_address: "Supplier Address",
+  supplier_telephone: "Supplier Telephone",
+  purchaser_tin: "Purchaser TIN",
+  purchaser_name: "Purchaser Name",
+  purchaser_address: "Purchaser Address",
+  purchaser_telephone: "Purchaser Telephone",
+  invoice_serial_number: "Invoice Serial Number",
+  invoice_date: "Invoice Date",
+  supply_date: "Supply Date",
+  place_of_supply: "Place of Supply",
+  line_items: "Goods/Services Description",
+  net_value: "Net Value (excl. VAT)",
+  vat_amount: "VAT Amount",
+  total_consideration: "Total (incl. VAT)",
+  total_in_words: "Total in Words",
+  mode_of_payment: "Mode of Payment",
 };
 
 function formatValue(val: unknown): string {
@@ -41,11 +39,12 @@ function formatValue(val: unknown): string {
 type Props = {
   original: Record<string, unknown>;
   corrected: Record<string, unknown>;
-  issues: ComplianceIssue[];
+  issues: IssueLike[];
 };
 
 export function InvoiceComparison({ original, corrected, issues }: Props) {
-  const issueFields = new Set(issues.map((i) => i.field));
+  const safeIssues = Array.isArray(issues) ? issues : [];
+  const issueFields = new Set(safeIssues.map((i) => i.field).filter(Boolean) as string[]);
   const allFieldsSet = new Set<string>([
     ...Object.keys(original || {}),
     ...Object.keys(corrected || {}),
@@ -148,17 +147,51 @@ export function InvoiceComparison({ original, corrected, issues }: Props) {
           })}
 
           {/* Show corrections list if available */}
-          {Array.isArray(corrected._corrections) && (corrected._corrections as string[]).length > 0 && (
+          {Array.isArray(corrected._corrections) && (corrected._corrections as unknown[]).length > 0 && (
             <div className="mt-4 pt-4 border-t">
               <p className="text-xs font-medium text-muted-foreground mb-2">
                 Corrections Made:
               </p>
               <ul className="space-y-1">
-                {(corrected._corrections as string[]).map((c: string, idx: number) => (
-                  <li key={idx} className="text-xs text-muted-foreground flex gap-1">
-                    <span className="text-success">+</span> {c}
-                  </li>
-                ))}
+                {(corrected._corrections as unknown[]).map((c, idx) => {
+                  if (typeof c === "string") {
+                    return (
+                      <li key={idx} className="text-xs text-muted-foreground flex gap-1">
+                        <span className="text-success">+</span> {c}
+                      </li>
+                    );
+                  }
+                  if (c && typeof c === "object") {
+                    const entry = c as Record<string, unknown>;
+                    const fieldName = String(entry.field ?? "");
+                    const reason = String(entry.reason ?? entry.message ?? "");
+                    const orig = formatValue(entry.original);
+                    const corr = formatValue(entry.corrected);
+                    return (
+                      <li key={idx} className="text-xs text-muted-foreground space-y-0.5">
+                        <div className="flex gap-1">
+                          <span className="text-success">+</span>
+                          <span className="font-medium">
+                            {fieldLabels[fieldName] || fieldName || "Field"}
+                          </span>
+                          {reason && <span>— {reason}</span>}
+                        </div>
+                        {(entry.original !== undefined || entry.corrected !== undefined) && (
+                          <div className="ml-4 text-muted-foreground/70">
+                            <span className="text-destructive line-through">{orig}</span>
+                            {" → "}
+                            <span className="text-success">{corr}</span>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  }
+                  return (
+                    <li key={idx} className="text-xs text-muted-foreground italic">
+                      Unable to display this correction
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}

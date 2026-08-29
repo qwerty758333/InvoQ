@@ -17,17 +17,31 @@ import {
   Download,
 } from "lucide-react";
 import Link from "next/link";
-import type { PipelineStage, ComplianceIssue, Language } from "@/lib/types";
+import type { PipelineStage, Language } from "@/lib/types";
+
+/** Handles both the structured ComplianceIssue format and the AI-returned {field, reason, original, corrected} format. */
+type IssueEntry = {
+  field?: string;
+  label?: string;
+  issue?: string;
+  reason?: string;
+  severity?: string;
+  ruleReference?: string;
+  suggestion?: string;
+  original?: unknown;
+  corrected?: unknown;
+};
 
 type InvoiceData = {
   id: string;
   status: string;
   originalFileUrl: string;
   extractedData: Record<string, unknown>;
-  complianceIssues: ComplianceIssue[];
+  complianceIssues: IssueEntry[] | null;
   correctedData: Record<string, unknown>;
+  complianceScore: number | null;
   language: Language;
-  explanation?: string;
+  explanation?: string | null;
 };
 
 export default function InvoiceDetailPage() {
@@ -69,13 +83,13 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  const issues = invoice.complianceIssues || [];
+  const issues: IssueEntry[] = Array.isArray(invoice.complianceIssues) ? invoice.complianceIssues : [];
   const criticalCount = issues.filter((i) => i.severity === "critical").length;
   const warningCount = issues.filter((i) => i.severity === "warning").length;
-  const score = Math.max(
-    0,
-    Math.round(((issues.length === 0 ? 1 : 0) + (1 - criticalCount / Math.max(issues.length, 1))) * 50)
-  );
+  const score = invoice.complianceScore ?? (issues.length === 0 ? 0 : Math.max(0, Math.min(100, 100 - (criticalCount * 10) - (warningCount * 5))));
+  const isPending = invoice.status === "pending";
+  const isFailed = invoice.status === "failed";
+  const isCompliant = invoice.status === "compliant";
 
   return (
     <div className="container py-8 md:py-12 animate-fade-in">
@@ -97,13 +111,31 @@ export default function InvoiceDetailPage() {
           </p>
         </div>
         <Badge
-          variant={invoice.status === "compliant" ? "success" : "warning"}
+          variant={
+            isCompliant
+              ? "success"
+              : isFailed
+              ? "destructive"
+              : isPending
+              ? "secondary"
+              : "warning"
+          }
           className="text-sm px-4 py-1"
         >
-          {invoice.status === "compliant" ? (
+          {isCompliant ? (
             <>
               <CheckCircle2 className="h-4 w-4 mr-1" />
               Compliant
+            </>
+          ) : isFailed ? (
+            <>
+              <XCircle className="h-4 w-4 mr-1" />
+              Analysis Failed
+            </>
+          ) : isPending ? (
+            <>
+              <AlertTriangle className="h-4 w-4 mr-1" />
+              Pending
             </>
           ) : (
             <>
@@ -120,11 +152,11 @@ export default function InvoiceDetailPage() {
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium">Compliance Score</span>
             <span className="text-2xl font-bold text-primary">
-              {invoice.status === "compliant" ? 100 : score}%
+              {isPending || isFailed ? "—" : `${score}%`}
             </span>
           </div>
           <Progress
-            value={invoice.status === "compliant" ? 100 : score}
+            value={isPending || isFailed ? 0 : score}
             className="h-3"
           />
           <div className="flex gap-4 mt-4 text-sm">
@@ -178,40 +210,74 @@ export default function InvoiceDetailPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {issues.map((issue, idx) => (
-                    <div
-                      key={idx}
-                      className="rounded-lg border p-4 space-y-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">
-                          {issue.label}
-                        </span>
-                        <Badge
-                          variant={
-                            issue.severity === "critical"
-                              ? "destructive"
-                              : issue.severity === "warning"
-                              ? "warning"
-                              : "secondary"
-                          }
-                        >
-                          {issue.severity}
-                        </Badge>
+                  {issues.map((issue, idx) => {
+                    const field = issue.field ?? "";
+                    const label = issue.label ?? field ?? "Unknown field";
+                    const description = issue.issue ?? issue.reason ?? "";
+                    const severity = issue.severity ?? "";
+                    const suggestion = issue.suggestion ?? "";
+                    const ruleRef = issue.ruleReference ?? "";
+
+                    return (
+                      <div
+                        key={`${field}-${idx}`}
+                        className="rounded-lg border p-4 space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-sm">
+                            {label}
+                          </span>
+                          {severity && (
+                            <Badge
+                              variant={
+                                severity === "critical"
+                                  ? "destructive"
+                                  : severity === "warning"
+                                  ? "warning"
+                                  : "secondary"
+                              }
+                            >
+                              {severity}
+                            </Badge>
+                          )}
+                        </div>
+                        {description && (
+                          <p className="text-sm text-muted-foreground">
+                            {description}
+                          </p>
+                        )}
+                        {suggestion && (
+                          <p className="text-xs text-primary">
+                            {suggestion}
+                          </p>
+                        )}
+                        {ruleRef && (
+                          <p className="text-xs text-muted-foreground/60">
+                            Ref: {ruleRef}
+                          </p>
+                        )}
+                        {(issue.original !== undefined || issue.corrected !== undefined) && (
+                          <div className="text-xs flex gap-2 mt-1">
+                            {issue.original !== undefined && (
+                              <span className="text-destructive">
+                                Original: <span className="font-mono">{String(issue.original ?? "—")}</span>
+                              </span>
+                            )}
+                            {issue.corrected !== undefined && (
+                              <span className="text-success">
+                                Corrected: <span className="font-mono">{String(issue.corrected ?? "—")}</span>
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {!description && !suggestion && !ruleRef && issue.original === undefined && issue.corrected === undefined && (
+                          <p className="text-xs text-muted-foreground italic">
+                            Unable to display this issue
+                          </p>
+                        )}
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {issue.issue}
-                      </p>
-                      {issue.suggestion && (
-                        <p className="text-xs text-primary">
-                          {issue.suggestion}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground/60">
-                        Ref: {issue.ruleReference}
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

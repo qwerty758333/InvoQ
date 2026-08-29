@@ -2,15 +2,92 @@ import OpenAI from "openai";
 import { getRulesForPrompt } from "./compliance";
 import type { ExtractedInvoice, ComplianceIssue, CorrectedInvoice, Language } from "./types";
 
-let _client: OpenAI | null = null;
+const DEFAULT_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
+
 function getClient(): OpenAI {
-  if (!_client) {
-    _client = new OpenAI({
-      baseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-      apiKey: process.env.DASHSCOPE_API_KEY,
-    });
+  const baseURL = process.env.OPEN_AI_COMPATIBLE || DEFAULT_BASE_URL;
+  const apiKey = process.env.DASHSCOPE_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("DASHSCOPE_API_KEY environment variable is not set");
   }
-  return _client;
+
+  return new OpenAI({ baseURL, apiKey });
+}
+
+/** Log safe diagnostics (never the key value). */
+function logDiagnostics(context: string, model: string) {
+  const baseURL = process.env.OPEN_AI_COMPATIBLE || DEFAULT_BASE_URL;
+  console.log(
+    `[AI ${context}] base=${baseURL} model=${model} key_present=${!!process.env.DASHSCOPE_API_KEY}`
+  );
+}
+
+/**
+ * Normalizes AI-extracted field names to match the ruleset IDs.
+ * The AI may return different field names than what the compliance engine expects.
+ */
+function normalizeExtractedFields(extracted: Record<string, unknown>): Record<string, unknown> {
+  const fieldMap: Record<string, string> = {
+    invoiceTitle: "title",
+    title: "title",
+    supplierTin: "supplier_tin",
+    supplier_tin: "supplier_tin",
+    supplierVatNumber: "supplier_tin",
+    supplierName: "supplier_name",
+    supplier_name: "supplier_name",
+    supplierAddress: "supplier_address",
+    supplier_address: "supplier_address",
+    supplierTelephone: "supplier_telephone",
+    supplier_telephone: "supplier_telephone",
+    purchaserTin: "purchaser_tin",
+    purchaser_tin: "purchaser_tin",
+    customerTin: "purchaser_tin",
+    customerVatNumber: "purchaser_tin",
+    purchaserName: "purchaser_name",
+    purchaser_name: "purchaser_name",
+    customerName: "purchaser_name",
+    purchaserAddress: "purchaser_address",
+    purchaser_address: "purchaser_address",
+    customerAddress: "purchaser_address",
+    purchaserTelephone: "purchaser_telephone",
+    purchaser_telephone: "purchaser_telephone",
+    invoiceNumber: "invoice_serial_number",
+    invoiceSerialNumber: "invoice_serial_number",
+    invoice_serial_number: "invoice_serial_number",
+    invoiceDate: "invoice_date",
+    invoice_date: "invoice_date",
+    supplyDate: "supply_date",
+    supply_date: "supply_date",
+    placeOfSupply: "place_of_supply",
+    place_of_supply: "place_of_supply",
+    lineItems: "line_items",
+    line_items: "line_items",
+    itemDescriptions: "line_items",
+    netValue: "net_value",
+    net_value: "net_value",
+    subtotal: "net_value",
+    vatAmount: "vat_amount",
+    vat_amount: "vat_amount",
+    totalConsideration: "total_consideration",
+    total_consideration: "total_consideration",
+    totalAmount: "total_consideration",
+    totalInWords: "total_in_words",
+    total_in_words: "total_in_words",
+    modeOfPayment: "mode_of_payment",
+    mode_of_payment: "mode_of_payment",
+    paymentTerms: "mode_of_payment",
+  };
+
+  const normalized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(extracted)) {
+    const targetKey = fieldMap[key] || key;
+    // Only set if target doesn't already have a value (prefer existing correct keys)
+    if (!(targetKey in normalized) || normalized[targetKey] === null || normalized[targetKey] === undefined) {
+      normalized[targetKey] = value;
+    }
+  }
+  return normalized;
 }
 
 /**
@@ -19,6 +96,7 @@ function getClient(): OpenAI {
 export async function extractInvoiceFields(
   imageBase64: string
 ): Promise<ExtractedInvoice> {
+  logDiagnostics("extract", "qwen-vl-plus");
   const response = await getClient().chat.completions.create({
     model: "qwen-vl-plus",
     messages: [
@@ -26,13 +104,12 @@ export async function extractInvoiceFields(
         role: "system",
         content:
           "You are an expert at reading invoices and extracting structured data. " +
-          "Return ONLY valid JSON with these fields (use null if not found): " +
-          "invoiceTitle, invoiceNumber, invoiceDate, supplierName, supplierAddress, " +
-          "supplierVatNumber, supplierTin, customerName, customerAddress, customerVatNumber, " +
-          "itemDescriptions (array of strings), quantities (array of numbers), " +
-          "unitPrices (array of numbers), lineTotals (array of numbers), " +
-          "subtotal, vatRate, vatAmount, totalAmount, currency, discounts, " +
-          "paymentTerms, supplyDate, exportIndicator. " +
+          "Return ONLY valid JSON with these EXACT field names (use null if not found): " +
+          "title, supplier_tin, supplier_name, supplier_address, supplier_telephone, " +
+          "purchaser_tin, purchaser_name, purchaser_address, purchaser_telephone, " +
+          "invoice_serial_number, invoice_date, supply_date, place_of_supply, " +
+          "line_items (array of objects with description, quantity, unit_price), " +
+          "net_value, vat_amount, total_consideration, total_in_words, mode_of_payment. " +
           "Return a single JSON object, no markdown.",
       },
       {
@@ -53,7 +130,8 @@ export async function extractInvoiceFields(
   const text = response.choices[0]?.message?.content ?? "{}";
   // Strip any markdown fences
   const cleaned = text.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-  return JSON.parse(cleaned);
+  const parsed = JSON.parse(cleaned);
+  return normalizeExtractedFields(parsed) as ExtractedInvoice;
 }
 
 /**
@@ -65,6 +143,7 @@ export async function analyzeCompliance(
   ruleIssues: ComplianceIssue[]
 ): Promise<ComplianceIssue[]> {
   const ruleset = getRulesForPrompt();
+  logDiagnostics("compliance", "qwen-plus");
 
   const response = await getClient().chat.completions.create({
     model: "qwen-plus",
@@ -117,6 +196,7 @@ export async function generateCorrectedInvoice(
   issues: ComplianceIssue[]
 ): Promise<CorrectedInvoice> {
   const ruleset = getRulesForPrompt();
+  logDiagnostics("correct", "qwen-plus");
 
   const response = await getClient().chat.completions.create({
     model: "qwen-plus",
@@ -164,6 +244,8 @@ export async function translateExplanation(
     ta: "Tamil",
   };
 
+  logDiagnostics("translate", "qwen-mt-plus");
+
   const response = await getClient().chat.completions.create({
     model: "qwen-mt-plus",
     messages: [
@@ -188,6 +270,7 @@ export async function generateExplanation(
   issues: ComplianceIssue[],
   corrected: CorrectedInvoice
 ): Promise<string> {
+  logDiagnostics("explain", "qwen-plus");
   const response = await getClient().chat.completions.create({
     model: "qwen-plus",
     messages: [

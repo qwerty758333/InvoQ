@@ -14,6 +14,7 @@ export function UploadForm() {
   const [preview, setPreview] = useState<string | null>(null);
   const [stage, setStage] = useState<PipelineStage | null>(null);
   const [error, setError] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
 
   const onDrop = useCallback((accepted: File[]) => {
     if (accepted.length > 0) {
@@ -41,12 +42,12 @@ export function UploadForm() {
   });
 
   async function handleAnalyze() {
-    if (!file) return;
+    if (!file || isUploading) return;
     setError("");
+    setIsUploading(true);
     setStage("upload");
 
     try {
-      // Stage 1: Upload
       const formData = new FormData();
       formData.append("file", file);
 
@@ -57,33 +58,53 @@ export function UploadForm() {
       });
 
       if (!uploadRes.ok) {
-        const err = await uploadRes.json();
-        throw new Error(err.error || "Upload failed");
+        let errorMessage = "Upload failed";
+        try {
+          const errData = await uploadRes.json();
+          if (errData?.error && typeof errData.error === "string") {
+            errorMessage = errData.error;
+          }
+        } catch {
+          // Response wasn't valid JSON, use default message
+        }
+        throw new Error(errorMessage);
       }
 
-      const { invoiceId } = await uploadRes.json();
+      const responseData = await uploadRes.json();
+      const invoiceId = responseData?.invoiceId;
+      if (!invoiceId) {
+        throw new Error("Server did not return an invoice ID");
+      }
 
-      // Stage 2: Analysis (server handles the pipeline)
       setStage("analyzing");
       const analyzeRes = await fetch(`/api/invoices/${invoiceId}/analyze`, {
         method: "POST",
       });
 
       if (!analyzeRes.ok) {
-        const err = await analyzeRes.json();
-        throw new Error(err.error || "Analysis failed");
+        let errorMessage = "Analysis failed";
+        try {
+          const errData = await analyzeRes.json();
+          if (errData?.error && typeof errData.error === "string") {
+            errorMessage = errData.error;
+          }
+        } catch {
+          // Response wasn't valid JSON, use default message
+        }
+        throw new Error(errorMessage);
       }
 
-      // Stage 3: Done
-      setStage("correcting");
-      await new Promise((r) => setTimeout(r, 500));
       setStage("done");
-
-      // Navigate to results
       router.push(`/dashboard/${invoiceId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      const errorMessage =
+        err instanceof Error && err.message
+          ? err.message
+          : "Something went wrong. Please try again.";
+      setError(errorMessage);
       setStage(null);
+    } finally {
+      setIsUploading(false);
     }
   }
 
@@ -153,8 +174,13 @@ export function UploadForm() {
 
       {/* Analyze button */}
       {file && (
-        <Button onClick={handleAnalyze} className="w-full" size="lg">
-          Analyze Invoice Compliance
+        <Button
+          onClick={handleAnalyze}
+          className="w-full"
+          size="lg"
+          disabled={isUploading}
+        >
+          {isUploading ? "Processing…" : "Analyze Invoice Compliance"}
         </Button>
       )}
     </div>

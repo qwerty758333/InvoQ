@@ -24,6 +24,8 @@ model Invoice {
   extractedData    Json
   complianceIssues Json
   correctedData    Json
+  complianceScore  Int?
+  explanation      String?
   status           String   @default("pending")
   language         String   @default("en")
   createdAt        DateTime @default(now())
