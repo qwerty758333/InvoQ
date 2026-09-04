@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PipelineProgress } from "@/components/pipeline-progress";
 import { Upload, X } from "lucide-react";
+import { getStoredLanguage } from "@/lib/i18n";
 import type { PipelineStage } from "@/lib/types";
 
 export function UploadForm() {
@@ -77,8 +78,12 @@ export function UploadForm() {
       }
 
       setStage("analyzing");
+      // Read the selected language at click time so it is always fresh (never
+      // stale, never reset mid-analysis) and pass it to the analysis pipeline.
       const analyzeRes = await fetch(`/api/invoices/${invoiceId}/analyze`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: getStoredLanguage() }),
       });
 
       if (!analyzeRes.ok) {

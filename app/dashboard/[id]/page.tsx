@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InvoiceComparison } from "@/components/invoice-comparison";
 import { PipelineProgress } from "@/components/pipeline-progress";
+import { MarkdownExplanation } from "@/components/markdown-explanation";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -43,6 +44,29 @@ type InvoiceData = {
   language: Language;
   explanation?: string | null;
 };
+
+/** Coerce an issue text field to a display string (objects/arrays never reach React children). */
+function asText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return "";
+}
+
+/** Safely format an issue's original/corrected value (mirrors invoice-comparison formatValue). */
+function formatIssueValue(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map((v) => formatIssueValue(v)).join(", ");
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "—";
+    }
+  }
+  return "—";
+}
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -211,12 +235,12 @@ export default function InvoiceDetailPage() {
               ) : (
                 <div className="space-y-4">
                   {issues.map((issue, idx) => {
-                    const field = issue.field ?? "";
-                    const label = issue.label ?? field ?? "Unknown field";
-                    const description = issue.issue ?? issue.reason ?? "";
-                    const severity = issue.severity ?? "";
-                    const suggestion = issue.suggestion ?? "";
-                    const ruleRef = issue.ruleReference ?? "";
+                    const field = asText(issue.field);
+                    const label = asText(issue.label) || field || "Unknown field";
+                    const description = asText(issue.issue) || asText(issue.reason);
+                    const severity = asText(issue.severity);
+                    const suggestion = asText(issue.suggestion);
+                    const ruleRef = asText(issue.ruleReference);
 
                     return (
                       <div
@@ -260,12 +284,12 @@ export default function InvoiceDetailPage() {
                           <div className="text-xs flex gap-2 mt-1">
                             {issue.original !== undefined && (
                               <span className="text-destructive">
-                                Original: <span className="font-mono">{String(issue.original ?? "—")}</span>
+                                Original: <span className="font-mono">{formatIssueValue(issue.original)}</span>
                               </span>
                             )}
                             {issue.corrected !== undefined && (
                               <span className="text-success">
-                                Corrected: <span className="font-mono">{String(issue.corrected ?? "—")}</span>
+                                Corrected: <span className="font-mono">{formatIssueValue(issue.corrected)}</span>
                               </span>
                             )}
                           </div>
@@ -287,14 +311,12 @@ export default function InvoiceDetailPage() {
         <TabsContent value="explanation">
           <Card>
             <CardContent className="pt-6">
-              {explanation ? (
-                <div className="prose prose-sm max-w-none whitespace-pre-wrap">
-                  {explanation}
-                </div>
-              ) : (
+              {isPending ? (
                 <p className="text-muted-foreground text-center py-8">
                   Generating explanation...
                 </p>
+              ) : (
+                <MarkdownExplanation content={explanation} />
               )}
             </CardContent>
           </Card>

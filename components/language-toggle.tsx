@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Languages } from "lucide-react";
+import { getStoredLanguage, LANGUAGE_STORAGE_KEY } from "@/lib/i18n";
 import type { Language } from "@/lib/types";
 
 const languages: { code: Language; label: string }[] = [
@@ -18,13 +19,28 @@ const languages: { code: Language; label: string }[] = [
 ];
 
 export function LanguageToggle() {
+  // Start from "en" so SSR and the first client render match, then sync the
+  // persisted language after mount (avoids hydration mismatches).
   const [lang, setLang] = useState<Language>("en");
+
+  useEffect(() => {
+    setLang(getStoredLanguage());
+    // Stay in sync when the language is changed elsewhere (e.g. another toggle)
+    const onLanguageChange = (e: Event) => {
+      const next = (e as CustomEvent<Language>).detail;
+      if (next === "en" || next === "si" || next === "ta") {
+        setLang(next);
+      }
+    };
+    window.addEventListener("language-change", onLanguageChange);
+    return () => window.removeEventListener("language-change", onLanguageChange);
+  }, []);
 
   function handleChange(newLang: Language) {
     setLang(newLang);
     // Store in localStorage for persistence
     if (typeof window !== "undefined") {
-      localStorage.setItem("invoq-language", newLang);
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, newLang);
     }
     // Dispatch custom event for other components to listen to
     window.dispatchEvent(
@@ -63,18 +79,23 @@ export function LanguageToggle() {
  * Hook to get the current language setting.
  */
 export function useLanguage(): [Language, (lang: Language) => void] {
-  const [lang, setLang] = useState<Language>(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("invoq-language") as Language) || "en";
-    }
-    return "en";
-  });
+  // Same hydration-safe pattern as LanguageToggle: default to "en" on the
+  // server/first render, then sync the persisted value after mount.
+  const [lang, setLang] = useState<Language>("en");
+
+  useEffect(() => {
+    setLang(getStoredLanguage());
+  }, []);
 
   function updateLang(newLang: Language) {
     setLang(newLang);
     if (typeof window !== "undefined") {
-      localStorage.setItem("invoq-language", newLang);
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, newLang);
     }
+    // Keep the rest of the app in sync with this change
+    window.dispatchEvent(
+      new CustomEvent("language-change", { detail: newLang })
+    );
   }
 
   return [lang, updateLang];

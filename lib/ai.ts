@@ -231,6 +231,10 @@ export async function generateCorrectedInvoice(
 
 /**
  * Translate an explanation into the target language using Qwen-MT.
+ * Qwen-MT expects the text as a single user message (system messages are
+ * rejected with "Role must be in [user, assistant]") and the source/target
+ * languages passed via the translation_options parameter.
+ * Docs: https://www.alibabacloud.com/help/en/model-studio/machine-translation
  */
 export async function translateExplanation(
   text: string,
@@ -246,18 +250,20 @@ export async function translateExplanation(
 
   logDiagnostics("translate", "qwen-mt-plus");
 
-  const response = await getClient().chat.completions.create({
+  // translation_options is a DashScope extension that rides along in the
+  // request body next to the standard OpenAI-compatible parameters.
+  const request: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming & {
+    translation_options: { source_lang: string; target_lang: string };
+  } = {
     model: "qwen-mt-plus",
-    messages: [
-      {
-        role: "system",
-        content: `You are a professional translator. Translate the following text into ${langMap[targetLanguage]}. Preserve all formatting, field names, and technical terms. Return ONLY the translated text.`,
-      },
-      { role: "user", content: text },
-    ],
-    temperature: 0.3,
-    max_tokens: 2048,
-  });
+    messages: [{ role: "user", content: text }],
+    translation_options: {
+      source_lang: "English",
+      target_lang: langMap[targetLanguage],
+    },
+  };
+
+  const response = await getClient().chat.completions.create(request);
 
   return response.choices[0]?.message?.content ?? text;
 }

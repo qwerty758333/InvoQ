@@ -19,14 +19,14 @@ model User {
 model Invoice {
   id               String   @id @default(uuid())
   userId           String
-  user             User     @relation(fields: [userId], references: [id])
   originalFileUrl  String
   extractedData    Json
   complianceIssues Json
   correctedData    Json
-  complianceScore  Int?
-  explanation      String?
   status           String   @default("pending")
   language         String   @default("en")
   createdAt        DateTime @default(now())
+  complianceScore  Int?
+  explanation      String?
+  user             User     @relation(fields: [userId], references: [id])
 }

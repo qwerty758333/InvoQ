@@ -7,17 +7,30 @@ import {
   analyzeCompliance,
   generateCorrectedInvoice,
   generateExplanation,
+  translateExplanation,
 } from "@/lib/ai";
 import { checkCompliance } from "@/lib/compliance";
-import type { ExtractedInvoice } from "@/lib/types";
+import type { ExtractedInvoice, Language } from "@/lib/types";
 import { readFile } from "fs/promises";
 import { join } from "path";
 
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   let pipelineStage = "init";
+
+  // Read the target explanation language from the request body ("en" | "si" | "ta").
+  // Tolerates an empty or invalid body for backward compatibility (defaults to English).
+  let language: Language = "en";
+  try {
+    const body = await req.json();
+    if (body?.language === "si" || body?.language === "ta") {
+      language = body.language;
+    }
+  } catch {
+    // No body or invalid JSON — keep the default English
+  }
 
   try {
     const session = await getServerSession(authOptions);
@@ -71,14 +84,36 @@ export async function POST(
     );
     console.log("[Analyze] Step 5 complete: qwen-plus returned corrected invoice");
 
-    // Step 6: Generate plain-language explanation — MODEL: qwen-plus
+    // Step 6: Generate plain-language explanation in English — MODEL: qwen-plus
     pipelineStage = "ai_explain";
-    const explanation = await generateExplanation(
+    const explanationEn = await generateExplanation(
       extracted as ExtractedInvoice,
       allIssues,
       corrected
     );
-    console.log("[Analyze] Step 6 complete: qwen-plus returned explanation");
+    console.log("[Analyze] Step 6 complete: qwen-plus returned English explanation");
+
+    // Step 6.5: Translate the explanation into the selected language — MODEL: qwen-mt-plus.
+    // Compliance reasoning above stays in English; only the human-readable explanation
+    // is translated. A translation failure must NOT fail the whole analysis — the
+    // English explanation is kept as a safe fallback.
+    let explanation = explanationEn;
+    let translationFailed = false;
+    if (language !== "en") {
+      try {
+        explanation = await translateExplanation(explanationEn, language);
+        if (!explanation) explanation = explanationEn;
+        console.log(`[Analyze] Step 6.5 complete: qwen-mt-plus translated explanation to "${language}"`);
+      } catch (error) {
+        translationFailed = true;
+        explanation = explanationEn;
+        const mtStatus = (error as any)?.status || (error as any)?.statusCode;
+        const mtCode = (error as any)?.error?.code || (error as any)?.code || "";
+        console.error(
+          `[Analyze] Translation failed: invoiceId=${params.id} targetLang=${language} stage=translate model=qwen-mt-plus status=${mtStatus} code=${mtCode} — keeping English explanation`
+        );
+      }
+    }
 
     // Step 7: Calculate compliance score and determine status
     pipelineStage = "save_results";
@@ -101,16 +136,23 @@ export async function POST(
         complianceScore,
         explanation,
         status,
+        language,
       },
     });
 
-    console.log(`[Analyze] Pipeline complete: status=${status} score=${complianceScore}`);
+    console.log(
+      `[Analyze] Pipeline complete: status=${status} score=${complianceScore} language=${language}` +
+        `${translationFailed ? " (translation failed — English explanation kept)" : ""}`
+    );
 
     return NextResponse.json({
       success: true,
       status,
       issues: allIssues,
       explanation,
+      explanationEn,
+      language,
+      translationFailed,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "";

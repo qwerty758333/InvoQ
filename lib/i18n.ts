@@ -170,3 +170,16 @@ export function getLanguageName(lang: Language): string {
   const names: Record<Language, string> = { en: "English", si: "සිංහල", ta: "தமிழ்" };
   return names[lang];
 }
+
+/** localStorage key that persists the user's selected language. */
+export const LANGUAGE_STORAGE_KEY = "invoq-language";
+
+/**
+ * Read the selected language from localStorage (client-side only).
+ * Only "en", "si", "ta" are accepted; anything else falls back to "en".
+ */
+export function getStoredLanguage(): Language {
+  if (typeof window === "undefined") return "en";
+  const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  return stored === "si" || stored === "ta" ? stored : "en";
+}
