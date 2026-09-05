@@ -2,11 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { randomUUID } from "crypto";
-
-const UPLOAD_DIR = join(process.cwd(), "public", "uploads", "invoices");
+import { uploadInvoiceImage } from "@/lib/storage";
 
 export async function POST(req: Request) {
   try {
@@ -39,22 +35,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate unique filename to prevent collisions
-    const ext = file.name.split(".").pop() || "jpg";
-    const uniqueFilename = `${randomUUID()}.${ext}`;
-    const userDir = join(UPLOAD_DIR, session.user.id);
-
-    // Ensure directory exists
-    await mkdir(userDir, { recursive: true });
-
-    // Write file to disk
-    const filePath = join(userDir, uniqueFilename);
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    await writeFile(filePath, buffer);
-
-    // Store relative path for URL access
-    const fileUrl = `/uploads/invoices/${session.user.id}/${uniqueFilename}`;
+    // Upload to Vercel Blob storage
+    const fileUrl = await uploadInvoiceImage(file, session.user.id);
 
     // Create invoice record
     const invoice = await prisma.invoice.create({

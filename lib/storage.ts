@@ -1,4 +1,5 @@
 import { put } from "@vercel/blob";
+import { randomUUID } from "crypto";
 
 /**
  * Upload an invoice image to Vercel Blob storage.
@@ -8,7 +9,13 @@ export async function uploadInvoiceImage(
   file: File,
   userId: string
 ): Promise<string> {
-  const filename = `invoices/${userId}/${Date.now()}-${file.name}`;
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    throw new Error(
+      "BLOB_READ_WRITE_TOKEN environment variable is not configured"
+    );
+  }
+  const ext = file.name.split(".").pop() || "jpg";
+  const filename = `invoices/${userId}/${randomUUID()}.${ext}`;
   const blob = await put(filename, file, {
     access: "public",
   });

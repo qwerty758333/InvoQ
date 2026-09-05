@@ -51,12 +51,26 @@ export async function POST(
       return NextResponse.json({ error: "Already analyzed" }, { status: 400 });
     }
 
-    // Step 1: Read the image from disk and convert to base64
+    // Step 1: Load the image and convert to base64.
+    // Supports both Vercel Blob URLs (https://...) and legacy local
+    // file paths (/uploads/invoices/...) for backward compatibility.
     pipelineStage = "read_file";
-    const imagePath = join(process.cwd(), "public", invoice.originalFileUrl);
-    const imageBuffer = await readFile(imagePath);
-    const imageBase64 = imageBuffer.toString("base64");
-    console.log("[Analyze] Step 1 complete: file read, image encoded");
+    let imageBase64: string;
+    if (invoice.originalFileUrl.startsWith("http")) {
+      const res = await fetch(invoice.originalFileUrl);
+      if (!res.ok) {
+        throw new Error(
+          `Failed to fetch invoice image: ${res.status} ${res.statusText}`
+        );
+      }
+      const arrayBuffer = await res.arrayBuffer();
+      imageBase64 = Buffer.from(arrayBuffer).toString("base64");
+    } else {
+      const imagePath = join(process.cwd(), "public", invoice.originalFileUrl);
+      const imageBuffer = await readFile(imagePath);
+      imageBase64 = imageBuffer.toString("base64");
+    }
+    console.log("[Analyze] Step 1 complete: image loaded, base64 encoded");
 
     // Step 2: Extract fields using AI (Qwen-VL) — MODEL: qwen-vl-plus
     pipelineStage = "extract";
